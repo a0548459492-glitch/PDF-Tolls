@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מרכז דיגיטלי מתקדם לעיבוד PDF</title>
+    <title>כלי PDF</title>
     
-    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="pdf-lib.min.js"></script>
+    <script src="jszip.min.js"></script>
+    <script src="pdf.min.js"></script>
     
     <style>
         :root {
@@ -285,8 +285,8 @@
 
 <div class="container">
     <header>
-        <h1>מרכז דיגיטלי לעיבוד PDF</h1>
-        <p>כל הכלים המקצועיים לעריכה וניהול קבצים במקום אחד - מאובטח וישירות בדפדפן</p>
+        <h1>כלי PDF</h1>
+        <p>כלים פשוטים עבור קבצי PDF</p>
     </header>
     
     <div class="tabs">
@@ -400,7 +400,7 @@
 </div>
 
 <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'pdf.worker.min.js';
 
     // ניהול מעבר בין טאבים
     function openTab(tabId) {
