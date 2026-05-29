@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>יוצר חוברות PDF - שני עמודים בדף</title>
+    <title>הפיכת PDF לחוברת (Booklet)</title>
     <script src="pdf-lib.min.js"></script>
     <style>
         body {
@@ -53,7 +53,7 @@
             gap: 5px;
         }
         .btn {
-            background-color: #2196F3;
+            background-color: #4CAF50;
             color: white;
             padding: 12px 24px;
             border: none;
@@ -64,7 +64,7 @@
             transition: background-color 0.3s;
         }
         .btn:hover {
-            background-color: #0b7dda;
+            background-color: #45a049;
         }
         .btn:disabled {
             background-color: #cccccc;
@@ -80,8 +80,8 @@
 <body>
 
 <div class="container">
-    <h1>יוצר חוברות PDF מקצועי</h1>
-    <p>העלה קובץ PDF. האתר יקטין ויחבר כל שני עמודים לעמוד אחד לרוחב (Landscape) לפי סדר קיפול של חוברת, מוכן להדפסה דו-צדדית.</p>
+    <h1>הפיכת קובץ PDF לחוברת</h1>
+    <p>העלה קובץ PDF, בחר את כיוון הקריאה של המסמך, והמערכת תסדר מחדש את הדפים בפורמט חוברת להדפסה.</p>
 
     <div class="file-input-wrapper">
         <label for="pdf-file" class="btn">בחר קובץ PDF</label>
@@ -92,15 +92,15 @@
     <div class="direction-selector">
         <label>
             <input type="radio" name="doc-direction" value="rtl" checked>
-            עברית (דף 1 בימין)
+            עברית (מימין לשמאל)
         </label>
         <label>
             <input type="radio" name="doc-direction" value="ltr">
-            אנגלית (דף 1 בשמאל)
+            אנגלית / שפות לועזיות (משמאל לימין)
         </label>
     </div>
 
-    <button id="process-btn" class="btn" disabled>צור חוברת (2 עמודים בדף אחד)</button>
+    <button id="process-btn" class="btn" disabled>עבד ויצא לחוברת</button>
 
     <div id="status"></div>
 </div>
@@ -113,6 +113,7 @@
 
     let uploadedFileArrayBuffer = null;
 
+    // האזנה לבחירת קובץ
     fileInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -129,40 +130,50 @@
         reader.readAsArrayBuffer(file);
     });
 
+    // לוגיקת סידור הדפים לחוברת
     processBtn.addEventListener('click', async () => {
         if (!uploadedFileArrayBuffer) return;
 
         try {
-            statusDiv.textContent = 'מחשב ומאחד עמודים לרוחב...';
+            statusDiv.textContent = 'מעבד את ה-PDF ומסדר דפים...';
             processBtn.disabled = true;
 
+            // בדיקת כיוון המסמך שנבחר
             const direction = document.querySelector('input[name="doc-direction"]:checked').value;
 
-            // טעינת ה-PDF המקורי ויצירת קובץ תוצאה חדש
+            // טעינת ה-PDF המקורי ויצירת PDF חדש
             const srcPdfDoc = await PDFLib.PDFDocument.load(uploadedFileArrayBuffer);
             const bookletPdfDoc = await PDFLib.PDFDocument.create();
 
-            const pageCount = srcPdfDoc.getPageCount();
+            let pageCount = srcPdfDoc.getPageCount();
+            
+            // השלמה למספר דפים שמתחלק ב-4
             const remainder = pageCount % 4;
             const targetPageCount = remainder === 0 ? pageCount : pageCount + (4 - remainder);
 
-            // יצירת סדר אינדקסים (null מייצג עמוד ריק)
+            // יצירת מערך אינדקסים (null מייצג דף ריק)
             const pageIndices = [];
             for (let i = 0; i < targetPageCount; i++) {
-                pageIndices.push(i < pageCount ? i : null);
+                if (i < pageCount) {
+                    pageIndices.push(i);
+                } else {
+                    pageIndices.push(null);
+                }
             }
 
-            // חישוב סדר הזוגות עבור החוברת
-            const pairsOrder = [];
+            // בניית סדר הדפים לחוברת לפי הכיוון שנבחר
+            const bookletOrder = [];
             let left = 0;
             let right = targetPageCount - 1;
 
             while (left < right) {
-                // צמד חיצוני
+                // צמד חיצוני (דפים קיצוניים)
                 if (direction === 'rtl') {
-                    pairsOrder.push({ right: right, left: left });
+                    bookletOrder.push(right); // עמוד אחרון בימין
+                    bookletOrder.push(left);  // עמוד ראשון בשמאל
                 } else {
-                    pairsOrder.push({ left: left, right: right });
+                    bookletOrder.push(left);  // עמוד ראשון בשמאל
+                    bookletOrder.push(right); // עמוד אחרון בימין
                 }
                 left++;
                 right--;
@@ -170,55 +181,32 @@
                 // צמד פנימי
                 if (left < right) {
                     if (direction === 'rtl') {
-                        pairsOrder.push({ right: left, left: right });
+                        bookletOrder.push(left);  // עמוד פנימי בימין
+                        bookletOrder.push(right); // עמוד פנימי בשמאל
                     } else {
-                        pairsOrder.push({ left: right, right: left });
+                        bookletOrder.push(right); // עמוד פנימי בשמאל
+                        bookletOrder.push(left);  // עמוד פנימי בימין
                     }
                     left++;
                     right--;
                 }
             }
 
-            // הגדרת גודל עמוד הבסיס (נשתמש במידות של העמוד הראשון לצורך החישוב)
-            const firstPageOrig = srcPdfDoc.getPage(0);
-            const origWidth = firstPageOrig.getWidth();
-            const origHeight = firstPageOrig.getHeight();
-
-            // העמוד החדש יהיה לרוחב (רוחב כפול, גובה זהה)
-            const newPageWidth = origWidth * 2;
-            const newPageHeight = origHeight;
-
-            // הטמעת עמודי המקור כגרפיקה בתוך המסמך החדש (Embedded Pages)
-            const embeddedPages = [];
-            // אנחנו מטמיעים את כל הדפים מראש כדי שנוכל לצייר אותם בלולאה
-            for (let i = 0; i < pageCount; i++) {
-                const [emb] = await bookletPdfDoc.embedPages([srcPdfDoc.getPage(i)]);
-                embeddedPages.push(emb);
-            }
-
-            // יצירת העמודים המאוחדים בפועל
-            for (const pair of pairsOrder) {
-                // הוספת עמוד חדש לרוחב
-                const newPage = bookletPdfDoc.addPage([newPageWidth, newPageHeight]);
-
-                // ציור עמוד שמאל (אם הוא לא דף ריק)
-                if (pair.left !== null) {
-                    newPage.drawPage(embeddedPages[pair.left], {
-                        x: 0,
-                        y: 0,
-                        width: origWidth,
-                        height: origHeight,
-                    });
-                }
-
-                // ציור עמוד ימין (אם הוא לא דף ריק)
-                if (pair.right !== null) {
-                    newPage.drawPage(embeddedPages[pair.right], {
-                        x: origWidth, // מתחיל מאמצע הדף המאוחד
-                        y: 0,
-                        width: origWidth,
-                        height: origHeight,
-                    });
+            // העתקה ובניית ה-PDF החדש
+            for (const origIndex of bookletOrder) {
+                if (origIndex !== null && origIndex < pageCount) {
+                    const [copiedPage] = await bookletPdfDoc.copyPages(srcPdfDoc, [origIndex]);
+                    bookletPdfDoc.addPage(copiedPage);
+                } else {
+                    // הוספת דף ריק בגודל המסמך
+                    let width = 595.28; 
+                    let height = 841.89; 
+                    if (pageCount > 0) {
+                        const firstPage = srcPdfDoc.getPage(0);
+                        width = firstPage.getWidth();
+                        height = firstPage.getHeight();
+                    }
+                    bookletPdfDoc.addPage([width, height]);
                 }
             }
 
@@ -227,15 +215,15 @@
             const blob = new Blob([pdfBytes], { type: 'application/pdf' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `booklet_print_${direction}.pdf`;
+            link.download = `booklet_${direction}_ready.pdf`;
             link.click();
 
-            statusDiv.textContent = 'החוברת מוכנה והורדה בהצלחה!';
+            statusDiv.textContent = 'הקובץ עובד בהצלחה והורד למחשב!';
             processBtn.disabled = false;
 
         } catch (error) {
             console.error(error);
-            statusDiv.textContent = 'אירעה שגיאה בעיבוד המסמך.';
+            statusDiv.textContent = 'אירעה שגיאה בעיבוד הקובץ.';
             processBtn.disabled = false;
         }
     });
