@@ -3,177 +3,470 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>הפיכת PDF לחוברת (Booklet)</title>
-    <script src="pdf-lib.min.js"></script>
+    <title>מרכז דיגיטלי מתקדם לעיבוד PDF</title>
+    
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    
     <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --success: #16a34a;
+            --danger: #dc2626;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f7f6;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            background-color: var(--bg-main);
             margin: 0;
             padding: 40px 20px;
-            text-align: center;
+            color: var(--text-main);
         }
+
         .container {
-            max-width: 600px;
+            max-width: 1000px;
             margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-        h1 {
-            color: #333;
+
+        header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        header h1 {
+            font-size: 32px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            font-size: 16px;
+            margin: 0;
+        }
+
+        /* תפריט הטאבים המעוצב */
+        .tabs {
+            display: flex;
+            background: var(--bg-card);
+            padding: 6px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+            margin-bottom: 25px;
+            gap: 4px;
+            overflow-x: auto;
+        }
+
+        .tab-btn {
+            flex: 1;
+            white-space: nowrap;
+            padding: 12px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 15px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-main);
+            background: #f1f5f9;
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+        }
+
+        /* פאנל התוכן */
+        .panel {
+            display: none;
+            background: var(--bg-card);
+            padding: 35px;
+            border-radius: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+        }
+
+        .panel.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .panel h2 {
+            font-size: 22px;
+            margin-top: 0;
+            margin-bottom: 10px;
+            color: #0f172a;
+        }
+
+        .panel-desc {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        /* אזור העלאת קבצים מעוצב */
+        .upload-zone {
+            border: 2px dashed #cbd5e1;
+            padding: 30px 20px;
+            border-radius: 12px;
+            background: #f8fafc;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
             margin-bottom: 20px;
         }
-        p {
-            color: #666;
+
+        .upload-zone:hover {
+            border-color: var(--primary);
+            background: #f0f5ff;
+        }
+
+        .upload-zone input[type="file"] {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .upload-zone p {
+            margin: 0;
+            font-size: 15px;
+            color: var(--text-muted);
+        }
+
+        .upload-zone strong {
+            color: var(--primary);
+        }
+
+        /* רשימת קבצים לסידור מחדש (מיזוג) */
+        .file-list {
+            margin: 20px 0;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
             font-size: 14px;
-            line-height: 1.6;
         }
-        .file-input-wrapper {
-            margin: 25px 0;
+
+        .file-item:last-child {
+            border-bottom: none;
         }
-        input[type="file"] {
-            display: none;
+
+        .sort-btn {
+            background: #f1f5f9;
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: background 0.15s;
         }
-        .direction-selector {
+
+        .sort-btn:hover {
+            background: #e2e8f0;
+        }
+
+        /* בורר אפשרויות וכיוון (לחוברת) */
+        .options-selector {
             margin: 20px 0;
             padding: 15px;
-            background-color: #f9f9f9;
-            border-radius: 6px;
+            background-color: #f8fafc;
+            border: 1px solid var(--border);
+            border-radius: 8px;
             display: flex;
             justify-content: center;
-            gap: 20px;
+            gap: 25px;
         }
-        .direction-selector label {
-            font-weight: bold;
+
+        .options-selector label {
+            font-weight: 600;
+            font-size: 15px;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
         }
-        .btn {
-            background-color: #4CAF50;
+
+        /* עיצוב שדות קלט */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        input[type="text"], input[type="number"] {
+            width: 100%;
+            padding: 12px;
+            box-sizing: border-box;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border 0.2s;
+        }
+
+        input[type="text"]:focus, input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* כפתור פעולה ראשי */
+        .action-btn {
+            background-color: var(--primary);
             color: white;
-            padding: 12px 24px;
+            padding: 14px 28px;
             border: none;
-            border-radius: 4px;
+            border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
-            font-weight: bold;
-            transition: background-color 0.3s;
+            font-weight: 600;
+            width: 100%;
+            transition: background 0.2s, transform 0.1s;
         }
-        .btn:hover {
-            background-color: #45a049;
+
+        .action-btn:hover {
+            background-color: var(--primary-hover);
         }
-        .btn:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
+
+        .action-btn:active {
+            transform: scale(0.99);
         }
-        #status {
+
+        /* שורת סטטוס */
+        .status {
             margin-top: 20px;
-            font-weight: bold;
-            color: #2c3e50;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            display: none;
         }
+        .status.info { display: block; background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .status.success { display: block; background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
+        .status.error { display: block; background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>הפיכת קובץ PDF לחוברת</h1>
-    <p>העלה קובץ PDF, בחר את כיוון הקריאה של המסמך, והמערכת תסדר מחדש את הדפים בפורמט חוברת להדפסה.</p>
-
-    <div class="file-input-wrapper">
-        <label for="pdf-file" class="btn">בחר קובץ PDF</label>
-        <input type="file" id="pdf-file" accept="application/pdf">
-        <div id="file-name" style="margin-top: 10px; color: #555;"></div>
+    <header>
+        <h1>מרכז דיגיטלי לעיבוד PDF</h1>
+        <p>כל הכלים המקצועיים לעריכה וניהול קבצים במקום אחד - מאובטח וישירות בדפדפן</p>
+    </header>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('booklet')">הפיכה לחוברת</button>
+        <button class="tab-btn" onclick="openTab('merge')">מזג וסדר קבצים</button>
+        <button class="tab-btn" onclick="openTab('split')">פיצול לדפים (ZIP)</button>
+        <button class="tab-btn" onclick="openTab('extract')">חילוץ לפי טווחים</button>
+        <button class="tab-btn" onclick="openTab('compress')">כווץ איכות</button>
+        <button class="tab-btn" onclick="openTab('to-img')">PDF לתמונות</button>
     </div>
 
-    <div class="direction-selector">
-        <label>
-            <input type="radio" name="doc-direction" value="rtl" checked>
-            עברית (מימין לשמאל)
-        </label>
-        <label>
-            <input type="radio" name="doc-direction" value="ltr">
-            אנגלית / שפות לועזיות (משמאל לימין)
-        </label>
+    <div id="booklet" class="panel active">
+        <h2>סדר דפים לחוברת (Booklet)</h2>
+        <p class="panel-desc">מסדר מחדש את עמודי המסמך בסדר הנכון לצורך הידוק וקיפול (ראשון מול אחרון). המערכת תשלים אוטומטית דפים ריקים במידת הצורך.</p>
+        <div class="form-group">
+            <div class="upload-zone">
+                <p>לחץ כאן לבחירת <strong>קובץ PDF להפיכה לחוברת</strong></p>
+                <input type="file" id="booklet-file" accept="application/pdf" onchange="updateSingleFileName(this, 'booklet-name')">
+            </div>
+            <div id="booklet-name" style="text-align:center; font-weight:500; margin-top:5px;"></div>
+        </div>
+        
+        <div class="options-selector">
+            <label>
+                <input type="radio" name="booklet-direction" value="rtl" checked>
+                עברית (קריאה מימין לשמאל)
+            </label>
+            <label>
+                <input type="radio" name="booklet-direction" value="ltr">
+                אנגלית (קריאה משמאל לימין)
+            </label>
+        </div>
+
+        <button class="action-btn" onclick="runBooklet()">סדר עמודים והורד חוברת</button>
+        <div id="booklet-status" class="status"></div>
     </div>
 
-    <button id="process-btn" class="btn" disabled>עבד ויצא לחוברת</button>
+    <div id="merge" class="panel">
+        <h2>מיזוג קובצי PDF</h2>
+        <p class="panel-desc">גרור או בחר מספר קבצים, וסדר את המיקום שלהם לפני האיחוד.</p>
+        <div class="form-group">
+            <div class="upload-zone">
+                <p>לחץ כאן או גרור קבצים כדי <strong>לבחור מספר קובצי PDF</strong></p>
+                <input type="file" id="merge-files" accept="application/pdf" multiple onchange="handleMergeFilesSelect(this)">
+            </div>
+        </div>
+        <div id="merge-file-list" class="file-list" style="display:none;"></div>
+        <button class="action-btn" onclick="runMerge()">מזג והורד קובץ מאוחד</button>
+        <div id="merge-status" class="status"></div>
+    </div>
 
-    <div id="status"></div>
+    <div id="split" class="panel">
+        <h2>פיצול לכל הדפים</h2>
+        <p class="panel-desc">המערכת תפרק את ה-PDF כך שכל דף יהפוך לקובץ נפרד, ותוריד הכל בתוך תיקיית ZIP מאורגנת.</p>
+        <div class="form-group">
+            <div class="upload-zone">
+                <p>לחץ לבחירת <strong>קובץ PDF לפיצול</strong></p>
+                <input type="file" id="split-file" accept="application/pdf" onchange="updateSingleFileName(this, 'split-name')">
+            </div>
+            <div id="split-name" style="text-align:center; font-weight:500; margin-top:5px;"></div>
+        </div>
+        <button class="action-btn" onclick="runSplit()">פצל והורד כ-ZIP</button>
+        <div id="split-status" class="status"></div>
+    </div>
+
+    <div id="extract" class="panel">
+        <h2>חילוץ עמודים מתקדם</h2>
+        <p class="panel-desc">ניתן להזין עמודים בודדים או טווחים מופרדים בפסיקים. דוגמה: <code style="background:#e2e8f0; padding:2px 6px; border-radius:4px;">1-3, 5, 8-12</code></p>
+        <div class="form-group">
+            <div class="upload-zone">
+                <p>לחץ לבחירת <strong>קובץ PDF לחילוץ</strong></p>
+                <input type="file" id="extract-file" accept="application/pdf" onchange="updateSingleFileName(this, 'extract-name')">
+            </div>
+            <div id="extract-name" style="text-align:center; font-weight:500; margin-top:5px;"></div>
+        </div>
+        <div class="form-group">
+            <label>הגדר עמודים וטווחים לחילוץ:</label>
+            <input type="text" id="extract-ranges" placeholder="לדוגמה: 1-4, 7, 11-15">
+        </div>
+        <button class="action-btn" onclick="runExtract()">חלץ עמודים לקובץ חדש</button>
+        <div id="extract-status" class="status"></div>
+    </div>
+
+    <div id="compress" class="panel">
+        <h2>כווץ והקטנת משקל</h2>
+        <p class="panel-desc">הקטנת נפח הקובץ לצורך שליחה מהירה במייל או וואטסאפ באמצעות אופטימיזציית רזולוציה.</p>
+        <div class="form-group">
+            <div class="upload-zone">
+                <p>לחץ לבחירת <strong>קובץ PDF לכווץ</strong></p>
+                <input type="file" id="compress-file" accept="application/pdf" onchange="updateSingleFileName(this, 'compress-name')">
+            </div>
+            <div id="compress-name" style="text-align:center; font-weight:500; margin-top:5px;"></div>
+        </div>
+        <button class="action-btn" onclick="runCompress()">כווץ והורד קובץ קל</button>
+        <div id="compress-status" class="status"></div>
+    </div>
+
+    <div id="to-img" class="panel">
+        <h2>המרת PDF לתמונות (JPG)</h2>
+        <p class="panel-desc">כל עמוד במסמך יומר לתמונת איכות גבוהה, וכל התמונות יורדו יחד כקובץ ZIP אחד.</p>
+        <div class="form-group">
+            <div class="upload-zone">
+                <p>לחץ לבחירת <strong>קובץ PDF להמרה</strong></p>
+                <input type="file" id="to-img-file" accept="application/pdf" onchange="updateSingleFileName(this, 'to-img-name')">
+            </div>
+            <div id="to-img-name" style="text-align:center; font-weight:500; margin-top:5px;"></div>
+        </div>
+        <button class="action-btn" onclick="runToImg()">המר והורד ארכיון תמונות</button>
+        <div id="to-img-status" class="status"></div>
+    </div>
 </div>
 
 <script>
-    const fileInput = document.getElementById('pdf-file');
-    const fileNameDiv = document.getElementById('file-name');
-    const processBtn = document.getElementById('process-btn');
-    const statusDiv = document.getElementById('status');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-    let uploadedFileArrayBuffer = null;
+    // ניהול מעבר בין טאבים
+    function openTab(tabId) {
+        document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.currentTarget.classList.add('active');
+    }
 
-    // האזנה לבחירת קובץ
-    fileInput.addEventListener('change', async (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
+    function setStatus(id, text, type) {
+        const el = document.getElementById(id);
+        el.innerText = text;
+        el.className = 'status ' + type;
+    }
 
-        fileNameDiv.textContent = `קובץ שנבחר: ${file.name}`;
-        statusDiv.textContent = 'טוען קובץ...';
-        
-        const reader = new FileReader();
-        reader.onload = function(evt) {
-            uploadedFileArrayBuffer = evt.target.result;
-            statusDiv.textContent = 'הקובץ מוכן לעיבוד.';
-            processBtn.disabled = false;
-        };
-        reader.readAsArrayBuffer(file);
-    });
+    function updateSingleFileName(input, divId) {
+        const div = document.getElementById(divId);
+        if(input.files.length > 0) {
+            div.innerText = `קובץ שנבחר: ${input.files[0].name}`;
+            div.style.color = "var(--success)";
+        } else {
+            div.innerText = "";
+        }
+    }
 
-    // לוגיקת סידור הדפים לחוברת
-    processBtn.addEventListener('click', async () => {
-        if (!uploadedFileArrayBuffer) return;
+    function readFileAsBuffer(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsArrayBuffer(file);
+        });
+    }
 
+    // --- לוגיקת כלי החוברת (Booklet) החדש ---
+    async function runBooklet() {
+        const file = document.getElementById('booklet-file').files[0];
+        if (!file) {
+            setStatus('booklet-status', 'אנא בחר קובץ PDF ליצירת חוברת.', 'error');
+            return;
+        }
         try {
-            statusDiv.textContent = 'מעבד את ה-PDF ומסדר דפים...';
-            processBtn.disabled = true;
+            setStatus('booklet-status', 'מנתח ומסדר עמודים למבנה חוברת...', 'info');
+            const direction = document.querySelector('input[name="booklet-direction"]:checked').value;
 
-            // בדיקת כיוון המסמך שנבחר
-            const direction = document.querySelector('input[name="doc-direction"]:checked').value;
-
-            // טעינת ה-PDF המקורי ויצירת PDF חדש
-            const srcPdfDoc = await PDFLib.PDFDocument.load(uploadedFileArrayBuffer);
+            const bytes = await readFileAsBuffer(file);
+            const srcPdfDoc = await PDFLib.PDFDocument.load(bytes);
             const bookletPdfDoc = await PDFLib.PDFDocument.create();
 
-            let pageCount = srcPdfDoc.getPageCount();
-            
-            // השלמה למספר דפים שמתחלק ב-4
+            const pageCount = srcPdfDoc.getPageCount();
             const remainder = pageCount % 4;
             const targetPageCount = remainder === 0 ? pageCount : pageCount + (4 - remainder);
 
-            // יצירת מערך אינדקסים (null מייצג דף ריק)
-            const pageIndices = [];
-            for (let i = 0; i < targetPageCount; i++) {
-                if (i < pageCount) {
-                    pageIndices.push(i);
-                } else {
-                    pageIndices.push(null);
-                }
-            }
-
-            // בניית סדר הדפים לחוברת לפי הכיוון שנבחר
+            // בניית סדר הדפים הנכון לפי כיוון קריאה
             const bookletOrder = [];
             let left = 0;
             let right = targetPageCount - 1;
 
             while (left < right) {
-                // צמד חיצוני (דפים קיצוניים)
+                // צמד חיצוני
                 if (direction === 'rtl') {
-                    bookletOrder.push(right); // עמוד אחרון בימין
-                    bookletOrder.push(left);  // עמוד ראשון בשמאל
+                    bookletOrder.push(right);
+                    bookletOrder.push(left);
                 } else {
-                    bookletOrder.push(left);  // עמוד ראשון בשמאל
-                    bookletOrder.push(right); // עמוד אחרון בימין
+                    bookletOrder.push(left);
+                    bookletOrder.push(right);
                 }
                 left++;
                 right--;
@@ -181,24 +474,24 @@
                 // צמד פנימי
                 if (left < right) {
                     if (direction === 'rtl') {
-                        bookletOrder.push(left);  // עמוד פנימי בימין
-                        bookletOrder.push(right); // עמוד פנימי בשמאל
+                        bookletOrder.push(left);
+                        bookletOrder.push(right);
                     } else {
-                        bookletOrder.push(right); // עמוד פנימי בשמאל
-                        bookletOrder.push(left);  // עמוד פנימי בימין
+                        bookletOrder.push(right);
+                        bookletOrder.push(left);
                     }
                     left++;
                     right--;
                 }
             }
 
-            // העתקה ובניית ה-PDF החדש
+            // יצירת ה-PDF החדש לפי סדר החוברת שחושב
             for (const origIndex of bookletOrder) {
                 if (origIndex !== null && origIndex < pageCount) {
                     const [copiedPage] = await bookletPdfDoc.copyPages(srcPdfDoc, [origIndex]);
                     bookletPdfDoc.addPage(copiedPage);
                 } else {
-                    // הוספת דף ריק בגודל המסמך
+                    // הוספת דף חלק בגודל הדף הראשון
                     let width = 595.28; 
                     let height = 841.89; 
                     if (pageCount > 0) {
@@ -210,23 +503,206 @@
                 }
             }
 
-            // שמירה והורדה
             const pdfBytes = await bookletPdfDoc.save();
-            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = `booklet_${direction}_ready.pdf`;
-            link.click();
+            downloadBlob(pdfBytes, `booklet_ordered_${direction}.pdf`, 'application/pdf');
+            setStatus('booklet-status', 'החוברת סודרה בהצלחה והורדה למחשב!', 'success');
 
-            statusDiv.textContent = 'הקובץ עובד בהצלחה והורד למחשב!';
-            processBtn.disabled = false;
-
-        } catch (error) {
-            console.error(error);
-            statusDiv.textContent = 'אירעה שגיאה בעיבוד הקובץ.';
-            processBtn.disabled = false;
+        } catch(e) {
+            setStatus('booklet-status', 'אירעה שגיאה בעיבוד החוברת: ' + e.message, 'error');
         }
-    });
+    }
+
+    // --- לוגיקת מיזוג קבצים עם שינוי סדר ---
+    let mergeFilesArray = [];
+
+    function handleMergeFilesSelect(input) {
+        for(let file of input.files) {
+            mergeFilesArray.push(file);
+        }
+        renderMergeFileList();
+    }
+
+    function renderMergeFileList() {
+        const listDiv = document.getElementById('merge-file-list');
+        listDiv.innerHTML = '';
+        if(mergeFilesArray.length === 0) { listDiv.style.display = 'none'; return; }
+        listDiv.style.display = 'block';
+
+        mergeFilesArray.forEach((file, index) => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            item.innerHTML = `
+                <div class="file-name-txt">${index + 1}. ${file.name}</div>
+                <div class="file-actions">
+                    <button class="sort-btn" onclick="moveFile(${index}, -1)" ${index === 0 ? 'disabled' : ''}>▲ למעלה</button>
+                    <button class="sort-btn" onclick="moveFile(${index}, 1)" ${index === mergeFilesArray.length - 1 ? 'disabled' : ''}>▼ למטה</button>
+                    <button class="sort-btn" style="color:var(--danger);" onclick="removeFile(${index})">הסר</button>
+                </div>
+            `;
+            listDiv.appendChild(item);
+        });
+    }
+
+    function moveFile(index, direction) {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= mergeFilesArray.length) return;
+        const temp = mergeFilesArray[index];
+        mergeFilesArray[index] = mergeFilesArray[targetIndex];
+        mergeFilesArray[targetIndex] = temp;
+        renderMergeFileList();
+    }
+
+    function removeFile(index) {
+        mergeFilesArray.splice(index, 1);
+        renderMergeFileList();
+    }
+
+    async function runMerge() {
+        if (mergeFilesArray.length < 2) { setStatus('merge-status', 'אנא בחר לפחות שני קבצים.', 'error'); return; }
+        try {
+            setStatus('merge-status', 'ממזג קבצים...', 'info');
+            const mergedPdf = await PDFLib.PDFDocument.create();
+            for (let file of mergeFilesArray) {
+                const bytes = await readFileAsBuffer(file);
+                const pdf = await PDFLib.PDFDocument.load(bytes);
+                const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
+                copiedPages.forEach(page => mergedPdf.addPage(page));
+            }
+            const mergedBytes = await mergedPdf.save();
+            downloadBlob(mergedBytes, 'merged_document.pdf', 'application/pdf');
+            setStatus('merge-status', 'המיזוג הושלם בהצלחה!', 'success');
+        } catch(e) { setStatus('merge-status', 'שגיאה: ' + e.message, 'error'); }
+    }
+
+    // --- לוגיקת חילוץ לפי טווחים מרובים ---
+    async function runExtract() {
+        const file = document.getElementById('extract-file').files[0];
+        const rangeInput = document.getElementById('extract-ranges').value.trim();
+        if (!file) { setStatus('extract-status', 'אנא בחר קובץ PDF.', 'error'); return; }
+        if (!rangeInput) { setStatus('extract-status', 'אנא הזן טווח עמודים.', 'error'); return; }
+        
+        try {
+            setStatus('extract-status', 'מחלץ עמודים...', 'info');
+            const bytes = await readFileAsBuffer(file);
+            const srcPdf = await PDFLib.PDFDocument.load(bytes);
+            const totalPages = srcPdf.getPageCount();
+            const targetIndices = [];
+            const parts = rangeInput.split(',');
+
+            for (let part of parts) {
+                part = part.trim();
+                if (part.includes('-')) {
+                    const rangeParts = part.split('-');
+                    const start = parseInt(rangeParts[0]);
+                    const end = parseInt(rangeParts[1]);
+                    if (isNaN(start) || isNaN(end) || start < 1 || end > totalPages || start > end) {
+                        throw new Error(`הטווח ${part} אינו תקין.`);
+                    }
+                    for (let i = start; i <= end; i++) targetIndices.push(i - 1);
+                } else {
+                    const pageNum = parseInt(part);
+                    if (isNaN(pageNum) || pageNum < 1 || pageNum > totalPages) {
+                        throw new Error(`העמוד ${part} אינו קיים.`);
+                    }
+                    targetIndices.push(pageNum - 1);
+                }
+            }
+
+            const newPdf = await PDFLib.PDFDocument.create();
+            const copiedPages = await newPdf.copyPages(srcPdf, targetIndices);
+            copiedPages.forEach(page => newPdf.addPage(page));
+            const pdfBytes = await newPdf.save();
+            downloadBlob(pdfBytes, `extracted_pages.pdf`, 'application/pdf');
+            setStatus('extract-status', 'החילוץ הושלם בהצלחה!', 'success');
+        } catch(e) { setStatus('extract-status', e.message, 'error'); }
+    }
+
+    // --- פיצול ל-ZIP ---
+    async function runSplit() {
+        const file = document.getElementById('split-file').files[0];
+        if (!file) { setStatus('split-status', 'אנא בחר קובץ.', 'error'); return; }
+        try {
+            setStatus('split-status', 'מפצל דפים ל-ZIP...', 'info');
+            const bytes = await readFileAsBuffer(file);
+            const srcPdf = await PDFLib.PDFDocument.load(bytes);
+            const pageCount = srcPdf.getPageCount();
+            const zip = new JSZip();
+            
+            for (let i = 0; i < pageCount; i++) {
+                const newPdf = await PDFLib.PDFDocument.create();
+                const [page] = await newPdf.copyPages(srcPdf, [i]);
+                newPdf.addPage(page);
+                const pdfBytes = await newPdf.save();
+                zip.file(`page_${i + 1}.pdf`, pdfBytes);
+            }
+            const zipContent = await zip.generateAsync({type: "blob"});
+            downloadBlob(zipContent, 'split_pages.zip', 'application/zip');
+            setStatus('split-status', 'הפיצול הסתיים בהצלחה!', 'success');
+        } catch(e) { setStatus('split-status', 'שגיאה: ' + e.message, 'error'); }
+    }
+
+    // --- כווץ והמרת תמונות ---
+    async function convertPdfToImages(arrayBuffer, qualityScale = 1.2) {
+        const pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+        const images = [];
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const viewport = page.getViewport({scale: qualityScale});
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            await page.render({canvasContext: context, viewport: viewport}).promise;
+            const imgData = canvas.toDataURL('image/jpeg', 0.65);
+            images.push({data: imgData, width: viewport.width, height: viewport.height});
+        }
+        return images;
+    }
+
+    async function runToImg() {
+        const file = document.getElementById('to-img-file').files[0];
+        if (!file) { setStatus('to-img-status', 'אנא בחר קובץ.', 'error'); return; }
+        try {
+            setStatus('to-img-status', 'ממיר דפים לתמונות...', 'info');
+            const bytes = await readFileAsBuffer(file);
+            const images = await convertPdfToImages(bytes, 1.8);
+            const zip = new JSZip();
+            images.forEach((img, index) => {
+                const base64Data = img.data.split(',')[1];
+                zip.file(`page_${index + 1}.jpg`, base64Data, {base64: true});
+            });
+            const zipContent = await zip.generateAsync({type: "blob"});
+            downloadBlob(zipContent, 'pdf_images.zip', 'application/zip');
+            setStatus('to-img-status', 'ההורדה הושלמה!', 'success');
+        } catch(e) { setStatus('to-img-status', 'שגיאה: ' + e.message, 'error'); }
+    }
+
+    async function runCompress() {
+        const file = document.getElementById('compress-file').files[0];
+        if (!file) { setStatus('compress-status', 'אנא בחר קובץ.', 'error'); return; }
+        try {
+            setStatus('compress-status', 'מכווץ את המסמך...', 'info');
+            const bytes = await readFileAsBuffer(file);
+            const images = await convertPdfToImages(bytes, 0.9);
+            const newPdf = await PDFLib.PDFDocument.create();
+            for (let img of images) {
+                const embeddedImg = await newPdf.embedJpg(img.data);
+                const page = newPdf.addPage([img.width, img.height]);
+                page.drawImage(embeddedImg, { x: 0, y: 0, width: img.width, height: img.height });
+            }
+            const compressedBytes = await newPdf.save();
+            downloadBlob(compressedBytes, 'compressed_document.pdf', 'application/pdf');
+            setStatus('compress-status', 'הקובץ כווץ בהצלחה!', 'success');
+        } catch(e) { setStatus('compress-status', 'שגיאה: ' + e.message, 'error'); }
+    }
+
+    function downloadBlob(data, fileName, mimeType) {
+        const blob = new Blob([data], {type: mimeType});
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+    }
 </script>
 
 </body>
