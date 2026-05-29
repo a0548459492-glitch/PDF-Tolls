@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>יוצר חוברות PDF - שני עמודים בדף</title>
+    <script src="pdf-lib.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7f6;
+            margin: 0;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        p {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .file-input-wrapper {
+            margin: 25px 0;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .direction-selector {
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+        }
+        .direction-selector label {
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn {
+            background-color: #2196F3;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background-color: #0b7dda;
+        }
+        .btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>יוצר חוברות PDF מקצועי</h1>
+    <p>העלה קובץ PDF. האתר יקטין ויחבר כל שני עמודים לעמוד אחד לרוחב (Landscape) לפי סדר קיפול של חוברת, מוכן להדפסה דו-צדדית.</p>
+
+    <div class="file-input-wrapper">
+        <label for="pdf-file" class="btn">בחר קובץ PDF</label>
+        <input type="file" id="pdf-file" accept="application/pdf">
+        <div id="file-name" style="margin-top: 10px; color: #555;"></div>
+    </div>
+
+    <div class="direction-selector">
+        <label>
+            <input type="radio" name="doc-direction" value="rtl" checked>
+            עברית (דף 1 בימין)
+        </label>
+        <label>
+            <input type="radio" name="doc-direction" value="ltr">
+            אנגלית (דף 1 בשמאל)
+        </label>
+    </div>
+
+    <button id="process-btn" class="btn" disabled>צור חוברת (2 עמודים בדף אחד)</button>
+
+    <div id="status"></div>
+</div>
+
+<script>
+    const fileInput = document.getElementById('pdf-file');
+    const fileNameDiv = document.getElementById('file-name');
+    const processBtn = document.getElementById('process-btn');
+    const statusDiv = document.getElementById('status');
+
+    let uploadedFileArrayBuffer = null;
+
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        fileNameDiv.textContent = `קובץ שנבחר: ${file.name}`;
+        statusDiv.textContent = 'טוען קובץ...';
+        
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            uploadedFileArrayBuffer = evt.target.result;
+            statusDiv.textContent = 'הקובץ מוכן לעיבוד.';
+            processBtn.disabled = false;
+        };
+        reader.readAsArrayBuffer(file);
+    });
+
+    processBtn.addEventListener('click', async () => {
+        if (!uploadedFileArrayBuffer) return;
+
+        try {
+            statusDiv.textContent = 'מחשב ומאחד עמודים לרוחב...';
+            processBtn.disabled = true;
+
+            const direction = document.querySelector('input[name="doc-direction"]:checked').value;
+
+            // טעינת ה-PDF המקורי ויצירת קובץ תוצאה חדש
+            const srcPdfDoc = await PDFLib.PDFDocument.load(uploadedFileArrayBuffer);
+            const bookletPdfDoc = await PDFLib.PDFDocument.create();
+
+            const pageCount = srcPdfDoc.getPageCount();
+            const remainder = pageCount % 4;
+            const targetPageCount = remainder === 0 ? pageCount : pageCount + (4 - remainder);
+
+            // יצירת סדר אינדקסים (null מייצג עמוד ריק)
+            const pageIndices = [];
+            for (let i = 0; i < targetPageCount; i++) {
+                pageIndices.push(i < pageCount ? i : null);
+            }
+
+            // חישוב סדר הזוגות עבור החוברת
+            const pairsOrder = [];
+            let left = 0;
+            let right = targetPageCount - 1;
+
+            while (left < right) {
+                // צמד חיצוני
+                if (direction === 'rtl') {
+                    pairsOrder.push({ right: right, left: left });
+                } else {
+                    pairsOrder.push({ left: left, right: right });
+                }
+                left++;
+                right--;
+
+                // צמד פנימי
+                if (left < right) {
+                    if (direction === 'rtl') {
+                        pairsOrder.push({ right: left, left: right });
+                    } else {
+                        pairsOrder.push({ left: right, right: left });
+                    }
+                    left++;
+                    right--;
+                }
+            }
+
+            // הגדרת גודל עמוד הבסיס (נשתמש במידות של העמוד הראשון לצורך החישוב)
+            const firstPageOrig = srcPdfDoc.getPage(0);
+            const origWidth = firstPageOrig.getWidth();
+            const origHeight = firstPageOrig.getHeight();
+
+            // העמוד החדש יהיה לרוחב (רוחב כפול, גובה זהה)
+            const newPageWidth = origWidth * 2;
+            const newPageHeight = origHeight;
+
+            // הטמעת עמודי המקור כגרפיקה בתוך המסמך החדש (Embedded Pages)
+            const embeddedPages = [];
+            // אנחנו מטמיעים את כל הדפים מראש כדי שנוכל לצייר אותם בלולאה
+            for (let i = 0; i < pageCount; i++) {
+                const [emb] = await bookletPdfDoc.embedPages([srcPdfDoc.getPage(i)]);
+                embeddedPages.push(emb);
+            }
+
+            // יצירת העמודים המאוחדים בפועל
+            for (const pair of pairsOrder) {
+                // הוספת עמוד חדש לרוחב
+                const newPage = bookletPdfDoc.addPage([newPageWidth, newPageHeight]);
+
+                // ציור עמוד שמאל (אם הוא לא דף ריק)
+                if (pair.left !== null) {
+                    newPage.drawPage(embeddedPages[pair.left], {
+                        x: 0,
+                        y: 0,
+                        width: origWidth,
+                        height: origHeight,
+                    });
+                }
+
+                // ציור עמוד ימין (אם הוא לא דף ריק)
+                if (pair.right !== null) {
+                    newPage.drawPage(embeddedPages[pair.right], {
+                        x: origWidth, // מתחיל מאמצע הדף המאוחד
+                        y: 0,
+                        width: origWidth,
+                        height: origHeight,
+                    });
+                }
+            }
+
+            // שמירה והורדה
+            const pdfBytes = await bookletPdfDoc.save();
+            const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `booklet_print_${direction}.pdf`;
+            link.click();
+
+            statusDiv.textContent = 'החוברת מוכנה והורדה בהצלחה!';
+            processBtn.disabled = false;
+
+        } catch (error) {
+            console.error(error);
+            statusDiv.textContent = 'אירעה שגיאה בעיבוד המסמך.';
+            processBtn.disabled = false;
+        }
+    });
+</script>
+
+</body>
+</html>
